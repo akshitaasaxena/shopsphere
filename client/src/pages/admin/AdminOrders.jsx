@@ -12,7 +12,7 @@ export default function AdminOrders() {
 
   const load = () => {
     api.get('/orders').then(({ data }) => setOrders(data));
-    api.get('/products').then(({ data }) => setProducts(data));
+    api.get('/products', { params: { limit: 100 } }).then(({ data }) => setProducts(data.products || data));
   };
   useEffect(() => {
     load();

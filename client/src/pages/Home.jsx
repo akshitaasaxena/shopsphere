@@ -9,18 +9,26 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({ search: '', category: '', sort: 'newest' });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     // NOTE: this fires a request on every keystroke - see "Debounce search" issue.
     setLoading(true);
     api
-      .get('/products', { params: filters })
-      .then(({ data }) => setProducts(data))
+      .get('/products', { params: { ...filters, page, limit: 12 } })
+      .then(({ data }) => {
+        setProducts(data.products || data);
+        setTotalPages(data.totalPages || 1);
+      })
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [filters]);
+  }, [filters, page]);
 
-  const update = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }));
+  const update = (key) => (e) => {
+    setPage(1);
+    setFilters((f) => ({ ...f, [key]: e.target.value }));
+  };
 
   return (
     <section>
@@ -51,11 +59,36 @@ export default function Home() {
       ) : products.length === 0 ? (
         <p className="muted">No products found.</p>
       ) : (
-        <div className="grid">
-          {products.map((p) => (
-            <ProductCard key={p._id} product={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid">
+            {products.map((p) => (
+              <ProductCard key={p._id} product={p} />
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <div className="row" style={{ justifyContent: 'center', marginTop: '32px', gap: '16px' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                ← Previous
+              </button>
+              <span className="muted">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );
