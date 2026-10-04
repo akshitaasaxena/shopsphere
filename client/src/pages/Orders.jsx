@@ -8,6 +8,8 @@ export default function Orders() {
   const location = useLocation();
   const [orders, setOrders] = useState(null);
   const [error, setError] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     api
@@ -16,6 +18,22 @@ export default function Orders() {
       .catch((err) => setError(getErrorMessage(err)));
   }, []);
 
+  const handleCancel = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    setCancellingId(orderId);
+    setActionError('');
+    try {
+      const { data: updatedOrder } = await api.patch(`/orders/${orderId}/cancel`);
+      setOrders((prev) =>
+        prev.map((o) => (o._id === orderId ? updatedOrder : o))
+      );
+    } catch (err) {
+      setActionError(getErrorMessage(err));
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   if (error) return <p className="error">{error}</p>;
   if (!orders) return <Loader />;
 
@@ -23,6 +41,7 @@ export default function Orders() {
     <section>
       <h1>My Orders</h1>
       {location.state?.placed && <p className="success">Order placed successfully!</p>}
+      {actionError && <p className="error">{actionError}</p>}
       {orders.length === 0 && <p className="muted">You have not placed any orders yet.</p>}
       {orders.map((o) => (
         <div key={o._id} className="card order">
@@ -39,7 +58,18 @@ export default function Orders() {
             <span className="muted">{new Date(o.createdAt).toLocaleDateString('en-IN')}</span>
             <strong>{formatINR(o.totalAmount)}</strong>
           </div>
-          {/* TODO: allow customer to cancel a pending order */}
+          {(o.status === 'pending' || o.status === 'confirmed') && (
+            <div style={{ marginTop: '12px' }}>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleCancel(o._id)}
+                disabled={cancellingId === o._id}
+              >
+                {cancellingId === o._id ? 'Cancelling...' : 'Cancel order'}
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </section>
