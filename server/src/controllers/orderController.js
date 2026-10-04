@@ -11,24 +11,27 @@ export const createOrder = asyncHandler(async (req, res) => {
     throw new Error('Order must contain at least one item');
   }
 
-  // Check that every product exists and has enough stock
+  // Atomically decrement stock for each item before creating the order.
+  // The $gte filter ensures stock cannot drop below zero: MongoDB applies
+  // the filter and $inc as one indivisible operation, so concurrent requests
+  // cannot both pass for the same units. A null result means the product
+  // does not exist or has insufficient stock.
+  // Note: without a MongoDB transaction, if a later item fails, stock
+  // decremented for earlier items in this loop is not restored.
   for (const item of items) {
-    const product = await Product.findById(item.product);
-    if (!product) {
-      res.status(404);
-      throw new Error(`Product not found: ${item.product}`);
-    }
-    if (product.stock < item.quantity) {
+    const updated = await Product.findOneAndUpdate(
+      { _id: item.product, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } }
+    );
+    if (!updated) {
       res.status(400);
-      throw new Error(`Not enough stock for ${product.name}`);
+      throw new Error(`Insufficient stock or product not found: ${item.product}`);
     }
   }
 
   // TODO: total is currently calculated from prices sent by the client.
   // This should use prices from the database instead (see issue tracker).
   const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-
-  // TODO: stock is not reduced after an order is placed.
 
   const order = await Order.create({
     user: req.user._id,
