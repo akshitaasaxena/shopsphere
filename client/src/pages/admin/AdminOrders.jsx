@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client.js';
+import DashboardCards from '../../components/admin/DashboardCards.jsx';
 import { formatINR } from '../../utils/format.js';
 
 const STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
 
-  const load = () => api.get('/orders').then(({ data }) => setOrders(data));
+  const load = () => {
+    api.get('/orders').then(({ data }) => setOrders(data));
+    api.get('/products').then(({ data }) => setProducts(data));
+  };
   useEffect(() => {
     load();
   }, []);
@@ -24,7 +29,8 @@ export default function AdminOrders() {
         <h1>Admin · Orders</h1>
         <Link to="/admin/products" className="btn btn-ghost">← Products</Link>
       </div>
-      {/* TODO: dashboard cards - total revenue, orders today, low-stock products */}
+
+      <DashboardCards orders={orders} products={products} />
       <table className="table">
         <thead>
           <tr><th>Order</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr>
